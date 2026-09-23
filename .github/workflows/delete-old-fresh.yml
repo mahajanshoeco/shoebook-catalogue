@@ -1,0 +1,28 @@
+name: Delete fresh photos older than 24h
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove old photos
+        run: |
+          now=$(date +%s); changed=0
+          shopt -s nullglob nocaseglob
+          for f in fresh/*.{jpg,jpeg,png,webp,gif}; do
+            t=$(git log -1 --format=%ct -- "$f")
+            if [ -n "$t" ] && [ $((now - t)) -ge 86400 ]; then git rm -q "$f"; changed=1; fi
+          done
+          if [ $changed = 1 ]; then
+            git config user.name "fresh-cleaner"
+            git config user.email "actions@github.com"
+            git commit -m "Remove fresh arrivals older than 24h"
+            git push
+          fi
